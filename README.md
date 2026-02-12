@@ -5,7 +5,7 @@ Ursa Major Choir ETL — minimal prototype
 - Loads configuration from a local `.env` file.
 - Connects to two Google Sheets:
   - **RAW** — source spreadsheet (`RAW_SPREADSHEET_ID`).
-  - **DB** — target spreadsheet with curated tabs (`DB_SPREADSHEET_ID`).
+  - **DB** — target spreadsheet with curated tabs (`TARGET_SPREADSHEET_ID`).
 - Ensures a `members` tab exists in the DB spreadsheet and writes a small test table there (no real personal data).
 
 ## Setup
@@ -28,7 +28,7 @@ Ursa Major Choir ETL — minimal prototype
 
 4. **Configure environment variables in `.env`**
    - `RAW_SPREADSHEET_ID` — ID of the source (RAW) Google Sheet.
-   - `DB_SPREADSHEET_ID` — ID of the target (DB) Google Sheet.
+   - `TARGET_SPREADSHEET_ID` — ID of the target (DB) Google Sheet.
    - `GOOGLE_SERVICE_ACCOUNT_FILE` — path to the local JSON key file for the service account  
      (for example: `./ursa-major-choir-etl-xxxx.json`).  
    - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — reserved for future Telegram alerts.

@@ -6,7 +6,8 @@ from typing import Any, Dict
 
 from dotenv import load_dotenv
 
-from etl.gsheets import build_sheets_service, ensure_sheet_exists, overwrite_range
+from etl.dim_chorister import build_dim_chorister_from_raw
+from etl.gsheets import build_sheets_service, ensure_sheet_exists, get_values, overwrite_range
 
 
 def _load_service_account_info() -> Dict[str, Any]:
@@ -33,16 +34,17 @@ def _load_service_account_info() -> Dict[str, Any]:
 
 
 def main() -> None:
-    """Minimal ETL prototype.
+    """ETL entrypoint.
 
     - Loads environment variables from .env.
     - Connects to RAW and DB spreadsheets.
-    - Ensures a 'members' tab exists in DB and writes a small test table there.
+    - Writes a small test table to DB.members (for smoke-testing).
+    - Builds dim_chorister from RAW.raw_input and writes it to DB.dim_chorister.
     """
     load_dotenv()
 
     raw_spreadsheet_id = os.environ["RAW_SPREADSHEET_ID"]
-    target_spreadsheet_id  = os.environ["TARGET_SPREADSHEET_ID"]
+    target_spreadsheet_id = os.environ["TARGET_SPREADSHEET_ID"]
 
     service_account_info = _load_service_account_info()
     service = build_sheets_service(service_account_info)
@@ -53,26 +55,49 @@ def main() -> None:
         fields="spreadsheetId",
     ).execute()
 
-    # Ensure target tab exists and write an idempotent test table.
+    # --- Smoke-test tab: members -------------------------------------------------
     ensure_sheet_exists(
         service=service,
         spreadsheet_id=target_spreadsheet_id,
         title="members",
     )
 
-    header = ["member_id", "full_name", "is_active"]
-    rows = [
-        header,
+    members_header = ["member_id", "full_name", "is_active"]
+    members_rows = [
+        members_header,
         ["test_member_1", "Test Member", "TRUE"],
     ]
     overwrite_range(
         service=service,
         spreadsheet_id=target_spreadsheet_id,
         range_a1="members!A1:C2",
-        rows=rows,
+        rows=members_rows,
     )
 
-    print("ETL prototype finished: wrote test data to DB 'members' tab.")
+    # --- dim_chorister -----------------------------------------------------------
+    raw_values = get_values(
+        service=service,
+        spreadsheet_id=raw_spreadsheet_id,
+        range_a1="main!A:ZZ",
+    )
+    dim_chorister_rows = build_dim_chorister_from_raw(raw_values)
+
+    ensure_sheet_exists(
+        service=service,
+        spreadsheet_id=target_spreadsheet_id,
+        title="dim_chorister",
+    )
+    overwrite_range(
+        service=service,
+        spreadsheet_id=target_spreadsheet_id,
+        range_a1="dim_chorister!A1:F",
+        rows=dim_chorister_rows,
+    )
+
+    print(
+        "ETL finished: wrote test row to DB.members and "
+        f"{len(dim_chorister_rows) - 1} rows to DB.dim_chorister.",
+    )
 
 
 if __name__ == "__main__":

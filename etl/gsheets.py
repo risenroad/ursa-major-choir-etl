@@ -84,3 +84,18 @@ def overwrite_range(
         valueInputOption="USER_ENTERED",
         body=body,
     ).execute()
+
+
+def get_values(
+    service: Any,
+    spreadsheet_id: str,
+    range_a1: str,
+) -> List[List[Any]]:
+    """Read values from a given range. Returns [] if the range is empty."""
+    result = (
+        service.spreadsheets()
+        .values()
+        .get(spreadsheetId=spreadsheet_id, range=range_a1)
+        .execute()
+    )
+    return result.get("values", [])
