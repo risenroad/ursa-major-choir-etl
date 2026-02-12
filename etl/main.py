@@ -6,7 +6,10 @@ from typing import Any, Dict
 
 from dotenv import load_dotenv
 
-from etl.dim_chorister import build_dim_chorister_from_raw
+from etl.dim_chorister import (
+    build_dim_chorister_assignment_from_raw,
+    build_dim_chorister_from_raw,
+)
 from etl.gsheets import build_sheets_service, ensure_sheet_exists, get_values, overwrite_range
 
 
@@ -39,7 +42,8 @@ def main() -> None:
     - Loads environment variables from .env.
     - Connects to RAW and DB spreadsheets.
     - Writes a small test table to DB.members (for smoke-testing).
-    - Builds dim_chorister from RAW.raw_input and writes it to DB.dim_chorister.
+    - Builds dim_chorister from RAW and writes it to DB.dim_chorister.
+    - Builds dim_chorister_assignment from RAW and writes it to DB.dim_chorister_assignment.
     """
     load_dotenv()
 
@@ -94,9 +98,25 @@ def main() -> None:
         rows=dim_chorister_rows,
     )
 
+    # --- dim_chorister_assignment -----------------------------------------------
+    dim_assignment_rows = build_dim_chorister_assignment_from_raw(raw_values)
+
+    ensure_sheet_exists(
+        service=service,
+        spreadsheet_id=target_spreadsheet_id,
+        title="dim_chorister_assignment",
+    )
+    overwrite_range(
+        service=service,
+        spreadsheet_id=target_spreadsheet_id,
+        range_a1="dim_chorister_assignment!A1:F",
+        rows=dim_assignment_rows,
+    )
+
     print(
-        "ETL finished: wrote test row to DB.members and "
-        f"{len(dim_chorister_rows) - 1} rows to DB.dim_chorister.",
+        "ETL finished: wrote test row to DB.members, "
+        f"{len(dim_chorister_rows) - 1} rows to DB.dim_chorister and "
+        f"{len(dim_assignment_rows) - 1} rows to DB.dim_chorister_assignment.",
     )
 
 
