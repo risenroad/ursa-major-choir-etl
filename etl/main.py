@@ -223,7 +223,7 @@ def main() -> None:
         overwrite_range(
             service=service,
             spreadsheet_id=target_spreadsheet_id,
-            range_a1="fact_attendance!A1:D",
+            range_a1="fact_attendance!A1:E",
             rows=fact_attendance_rows,
         )
 

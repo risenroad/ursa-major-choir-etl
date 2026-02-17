@@ -92,17 +92,20 @@ ID rule:
 ### FACTS
 
 #### `fact_attendance`
-Grain: 1 row per (chorister_id, rehearsal_date) where attendance is recorded.
+Grain: 1 row per (chorister_id, rehearsal_date) — **all pairs**, including empty cells (empty = missed rehearsal).
 
 Columns:
-- `rehearsal_date` (date)
+- `rehearsal_date` (date, YYYY-MM-DD)
 - `chorister_id` (string)
-- `hours_attended` (number)
+- `hours_attended` (number; 0 for empty cell)
+- `missed_flag` (int 0 or 1: 1 if source cell was empty)
 - `load_ts` (datetime)
 
 Rules:
-- created by unpivoting RAW chorister rows across date columns
-- skip empty cells (no record)
+- Created by unpivoting RAW chorister rows × date columns: **every** chorister × **every** date column gets a row.
+- Empty cell → `hours_attended = 0`, `missed_flag = 1`.
+- Non-empty cell → `hours_attended = parse_float(value)` (comma → dot), `missed_flag = 0`; invalid value → RuntimeError with (chorister_id, rehearsal_date, raw_value).
+- Date column headers are normalized to ISO; duplicate dates after normalization → RuntimeError.
 
 #### `fact_song_time`
 Grain: 1 row per (song_id, rehearsal_date) where song minutes are recorded.
