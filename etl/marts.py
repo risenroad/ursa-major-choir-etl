@@ -53,14 +53,14 @@ def _safe_str(val: Any) -> str:
     return str(val).strip()
 
 
-def _get_voice_part_for_date(
+def _get_assignment_for_date(
     chorister_id: str,
     rehearsal_date_iso: str,
     assignments: List[dict],
-) -> str:
-    """Return voice_part for chorister on date. valid_from <= date and (valid_to is null or date <= valid_to). If multiple, pick assignment with max valid_from."""
+) -> dict | None:
+    """Return assignment row for chorister on date (valid_from <= date and date <= valid_to). If multiple, pick with max valid_from."""
     if not rehearsal_date_iso:
-        return ""
+        return None
     candidates = []
     for a in assignments:
         if _safe_str(a.get("chorister_id")) != chorister_id:
@@ -73,11 +73,33 @@ def _get_voice_part_for_date(
             continue
         if vt and _normalize_date_to_iso(vt) and rehearsal_date_iso > _normalize_date_to_iso(vt):
             continue
-        candidates.append((vf, _safe_str(a.get("voice_part"))))
+        candidates.append((vf, a))
     if not candidates:
-        return ""
+        return None
     candidates.sort(key=lambda x: x[0], reverse=True)
     return candidates[0][1]
+
+
+def _get_voice_part_for_date(
+    chorister_id: str,
+    rehearsal_date_iso: str,
+    assignments: List[dict],
+) -> str:
+    """Return voice_part for chorister on date (from assignment on that date)."""
+    a = _get_assignment_for_date(chorister_id, rehearsal_date_iso, assignments)
+    return _safe_str(a.get("voice_part")) if a else ""
+
+
+def _is_active_from_assignment(assignment: dict | None) -> bool:
+    """Parse is_active from assignment row (Sheets may store TRUE/FALSE as string)."""
+    if not assignment:
+        return False
+    v = assignment.get("is_active")
+    if v is None:
+        return False
+    if isinstance(v, bool):
+        return v
+    return str(v).strip().upper() in ("TRUE", "1", "YES")
 
 
 # --- mart_attendance ----------------------------------------------------------
@@ -88,6 +110,7 @@ MART_ATTENDANCE_HEADER = [
     "full_name",
     "joined_date",
     "voice_part",
+    "is_active",
     "hours_attended",
     "attended_flag",
     "missed_flag",
@@ -137,7 +160,9 @@ def build_mart_attendance(
         joined_date_iso = _joined_date_iso_for_available(ch, chorister_id)
         joined_date_display = _normalize_date_to_iso(joined_date_raw) or _safe_str(joined_date_raw)
 
-        voice_part = _get_voice_part_for_date(chorister_id, rehearsal_date_iso, dim_chorister_assignment)
+        assignment = _get_assignment_for_date(chorister_id, rehearsal_date_iso, dim_chorister_assignment)
+        voice_part = _safe_str(assignment.get("voice_part")) if assignment else ""
+        is_active = _is_active_from_assignment(assignment)
         attended_flag = 1 if hours > 0 else 0
         available_flag = 1 if (joined_date_iso and rehearsal_date_iso >= joined_date_iso) else 0
 
@@ -147,6 +172,7 @@ def build_mart_attendance(
             full_name,
             joined_date_display,
             voice_part,
+            is_active,
             hours,
             attended_flag,
             missed_flag,
