@@ -41,7 +41,7 @@ jobs:
         run: |
           python -m etl.main
 
-                - name: Notify Telegram (success)
+      - name: Notify Telegram (success)
         if: success()
         run: |
           curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
