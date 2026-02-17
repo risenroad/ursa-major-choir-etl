@@ -90,7 +90,23 @@ MART_ATTENDANCE_HEADER = [
     "voice_part",
     "hours_attended",
     "attended_flag",
+    "missed_flag",
+    "available_flag",
 ]
+
+
+def _joined_date_iso_for_available(ch: dict, chorister_id: str) -> str:
+    """Return joined_date as ISO; empty if missing/invalid. Raise if value present but unparseable."""
+    raw = ch.get("joined_date")
+    s = _safe_str(raw)
+    if not s:
+        return ""
+    iso = _normalize_date_to_iso(raw)
+    if not iso and s:
+        raise RuntimeError(
+            f"Invalid joined_date for chorister_id={chorister_id!r}: {raw!r} (cannot normalize to YYYY-MM-DD)."
+        )
+    return iso
 
 
 def build_mart_attendance(
@@ -98,7 +114,10 @@ def build_mart_attendance(
     dim_chorister_assignment: List[dict],
     fact_attendance: List[dict],
 ) -> tuple[List[str], List[List[Any]]]:
-    """Build mart_attendance: one row per chorister_id + rehearsal_date. Returns (header, rows)."""
+    """Build mart_attendance: one row per chorister_id + rehearsal_date. Returns (header, rows).
+
+    missed_flag from fact_attendance; available_flag = 1 if rehearsal_date >= joined_date else 0.
+    """
     chorister_by_id: dict[str, dict] = {_safe_str(r.get("chorister_id")): r for r in dim_chorister if _safe_str(r.get("chorister_id"))}
 
     rows: List[List[Any]] = []
@@ -109,19 +128,29 @@ def build_mart_attendance(
             rehearsal_date_iso = _safe_str(rehearsal_date_raw)
         chorister_id = _safe_str(fa.get("chorister_id"))
         hours = _safe_float(fa.get("hours_attended"))
+        missed_flag_val = _safe_float(fa.get("missed_flag"), 0.0)
+        missed_flag = 1 if missed_flag_val != 0 else 0
+
         ch = chorister_by_id.get(chorister_id) or {}
         full_name = _safe_str(ch.get("full_name"))
-        joined_date = _safe_str(ch.get("joined_date"))
+        joined_date_raw = ch.get("joined_date")
+        joined_date_iso = _joined_date_iso_for_available(ch, chorister_id)
+        joined_date_display = _normalize_date_to_iso(joined_date_raw) or _safe_str(joined_date_raw)
+
         voice_part = _get_voice_part_for_date(chorister_id, rehearsal_date_iso, dim_chorister_assignment)
         attended_flag = 1 if hours > 0 else 0
+        available_flag = 1 if (joined_date_iso and rehearsal_date_iso >= joined_date_iso) else 0
+
         rows.append([
             rehearsal_date_iso,
             chorister_id,
             full_name,
-            joined_date,
+            joined_date_display,
             voice_part,
             hours,
             attended_flag,
+            missed_flag,
+            available_flag,
         ])
     return (MART_ATTENDANCE_HEADER, rows)
 

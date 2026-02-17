@@ -49,6 +49,7 @@ What happens on run:
 - It overwrites `members!A1:C2` with a small test table:
   - header row: `member_id`, `full_name`, `is_active`
   - one dummy row with test values.
+- It builds dim/fact tables from RAW and **marts** from dim/fact. `fact_attendance` is **full**: one row per (chorister, rehearsal_date), including empty cells (recorded as missed).
 
-The operation is idempotent: repeated runs do not create duplicate rows, they simply overwrite the same range.
+The operation is idempotent: repeated runs do not create duplicate rows, they simply overwrite the same ranges.
 
