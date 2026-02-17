@@ -32,21 +32,29 @@ def append_rows(
     ).execute()
 
 
-def ensure_sheet_exists(service: Any, spreadsheet_id: str, title: str) -> None:
-    """Create a sheet (tab) with the given title if it does not exist."""
-    sheets_api = service.spreadsheets()
-    metadata = sheets_api.get(
-        spreadsheetId=spreadsheet_id,
-        fields="sheets.properties.title",
-    ).execute()
-
-    existing_titles = {
+def get_sheet_titles(service: Any, spreadsheet_id: str) -> set[str]:
+    """Return set of worksheet titles (tab names) in the spreadsheet."""
+    metadata = (
+        service.spreadsheets()
+        .get(
+            spreadsheetId=spreadsheet_id,
+            fields="sheets.properties.title",
+        )
+        .execute()
+    )
+    return {
         sheet["properties"]["title"]
         for sheet in metadata.get("sheets", [])
         if "properties" in sheet and "title" in sheet["properties"]
     }
+
+
+def ensure_sheet_exists(service: Any, spreadsheet_id: str, title: str) -> None:
+    """Create a sheet (tab) with the given title if it does not exist."""
+    existing_titles = get_sheet_titles(service, spreadsheet_id)
     if title in existing_titles:
         return
+    sheets_api = service.spreadsheets()
 
     body = {
         "requests": [
@@ -99,3 +107,58 @@ def get_values(
         .execute()
     )
     return result.get("values", [])
+
+
+def read_table(
+    service: Any,
+    spreadsheet_id: str,
+    worksheet_name: str,
+) -> List[dict]:
+    """Read a worksheet as a table: first row = header, each other row = dict of column -> value.
+
+    Returns list of dicts (one per data row). Empty sheet or only header -> [].
+    Short rows are padded with None for missing columns.
+    """
+    values = get_values(
+        service=service,
+        spreadsheet_id=spreadsheet_id,
+        range_a1=f"{worksheet_name}!A:ZZ",
+    )
+    if not values:
+        return []
+    header = [str(v).strip() if v is not None else "" for v in values[0]]
+    result: List[dict] = []
+    for row in values[1:]:
+        d: dict = {}
+        for i, key in enumerate(header):
+            d[key] = row[i] if i < len(row) else None
+        result.append(d)
+    return result
+
+
+def write_table_overwrite(
+    service: Any,
+    spreadsheet_id: str,
+    worksheet_name: str,
+    header: List[str],
+    rows: List[List[Any]],
+) -> None:
+    """Idempotently overwrite a worksheet with a table: create tab if missing, clear, write header + rows."""
+    ensure_sheet_exists(
+        service=service,
+        spreadsheet_id=spreadsheet_id,
+        title=worksheet_name,
+    )
+    range_a1 = f"{worksheet_name}!A:ZZ"
+    service.spreadsheets().values().clear(
+        spreadsheetId=spreadsheet_id,
+        range=range_a1,
+    ).execute()
+    all_rows: List[List[Any]] = [header] + rows
+    if all_rows:
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{worksheet_name}!A1",
+            valueInputOption="USER_ENTERED",
+            body={"values": all_rows},
+        ).execute()
