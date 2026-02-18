@@ -3,7 +3,8 @@ name: ETL (Google Sheets)
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 6 * * 1" # Mon 10:00 Tbilisi (UTC+4) = 06:00 UTC
+  - cron: "0 6 * * 1"
+  - cron: "0 6 * * 4" 
 
 jobs:
   run-etl:
