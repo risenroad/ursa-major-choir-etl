@@ -3,8 +3,8 @@ name: ETL (Google Sheets)
 on:
   workflow_dispatch: {}
   schedule:
-  - cron: "0 6 * * 1"
-  - cron: "0 6 * * 4" 
+    - cron: "0 6 * * 1"
+    - cron: "0 6 * * 5" 
 
 jobs:
   run-etl:
