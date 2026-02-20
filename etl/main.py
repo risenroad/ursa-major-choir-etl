@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from dotenv import load_dotenv
@@ -287,8 +288,6 @@ def main() -> None:
                 "error_message",
             ]
         )
-
-    from datetime import datetime, timezone  # local import to avoid unused at module level
 
     run_ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
     rows_to_append.append(

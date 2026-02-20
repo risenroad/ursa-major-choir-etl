@@ -4,9 +4,10 @@ Ursa Major Choir ETL — minimal prototype
 
 - Loads configuration from a local `.env` file.
 - Connects to two Google Sheets:
-  - **RAW** — source spreadsheet (`RAW_SPREADSHEET_ID`).
+  - **RAW** — source spreadsheet (`RAW_SPREADSHEET_ID`), tab `main`.
   - **DB** — target spreadsheet with curated tabs (`TARGET_SPREADSHEET_ID`).
 - Ensures a `members` tab exists in the DB spreadsheet and writes a small test table there (no real personal data).
+- Builds dimension and fact tables from RAW (dim_chorister, dim_chorister_assignment, dim_song, fact_attendance, fact_song_time) and three marts (mart_attendance, mart_song_rehearsal, mart_chorister_song) from them; appends one row per run to `etl_log`.
 
 ## Setup
 
