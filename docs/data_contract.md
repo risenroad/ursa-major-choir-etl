@@ -10,7 +10,7 @@ Update cadence: weekly.
 ---
 
 ## Source (RAW)
-Spreadsheet tab: `raw_input`
+Spreadsheet tab: `main`
 
 ### Columns
 Fixed columns:
@@ -124,43 +124,55 @@ Rules:
 
 ### MARTS (FOR DASHBOARD & ALERTS)
 
-#### `mart_rehearsal_roster`
-Grain: 1 row per (rehearsal_date, chorister_id) for active choristers.
+#### `mart_attendance`
+Grain: 1 row per (rehearsal_date, chorister_id) from `fact_attendance`.
 
 Columns:
-- `rehearsal_date` (date)
+- `rehearsal_date` (date, YYYY-MM-DD)
 - `chorister_id` (string)
 - `full_name` (string)
-- `tgid` (string, nullable)
+- `joined_date` (date, display)
 - `voice_part` (string)
 - `is_active` (bool)
-- `is_present` (bool)
-- `hours_attended` (number, default 0)
-- `load_ts` (datetime)
+- `hours_attended` (number)
+- `attended_flag` (int 0 or 1: 1 if hours_attended > 0)
+- `missed_flag` (int 0 or 1, from fact_attendance)
+- `available_flag` (int 0 or 1: 1 if rehearsal_date >= joined_date)
 
 Rules:
-- for each rehearsal_date and each chorister active on that date:
-  - `is_present = true` if a record exists in `fact_attendance` with hours_attended>0
-  - else false
+- Built from `dim_chorister`, `dim_chorister_assignment`, `fact_attendance`.
+- `voice_part` and `is_active` resolved per rehearsal_date from `dim_chorister_assignment` (valid_from/valid_to).
 
-#### `mart_absence_by_song`
-Grain: 1 row per (chorister_id, song_id, rehearsal_date) where song was rehearsed and chorister was absent.
+#### `mart_song_rehearsal`
+Grain: 1 row per (song_id, rehearsal_date) from `fact_song_time`.
+
+Columns:
+- `rehearsal_date` (date)
+- `song_id` (string)
+- `song_name` (string)
+- `minutes_spent` (number)
+- `hours_spent` (number, minutes_spent / 60)
+
+Rules:
+- Built from `dim_song`, `fact_song_time`.
+
+#### `mart_chorister_song`
+Grain: 1 row per (rehearsal_date, chorister_id, song_id) where the chorister attended (hours_attended > 0) and the song was rehearsed that day.
 
 Columns:
 - `rehearsal_date` (date)
 - `chorister_id` (string)
 - `full_name` (string)
-- `tgid` (string, nullable)
+- `joined_date` (string)
 - `voice_part` (string)
 - `song_id` (string)
 - `song_name` (string)
 - `minutes_spent` (number)
-- `load_ts` (datetime)
+- `hours_spent` (number)
 
 Rules:
-- take all (song_id, rehearsal_date) from `fact_song_time`
-- join to roster for the same rehearsal_date
-- keep rows where `is_present = false`
+- Built from `dim_chorister`, `dim_chorister_assignment`, `dim_song`, `fact_attendance`, `fact_song_time`.
+- Only dates where chorister has hours_attended > 0 and song has minutes_spent for that date.
 
 ---
 
@@ -172,10 +184,11 @@ Grain: 1 row per ETL run.
 Columns:
 - `run_ts` (datetime)
 - `status` (string: success|failed)
-- `rows_dim_chorister`
-- `rows_dim_song`
-- `rows_fact_attendance`
-- `rows_fact_song_time`
+- `rows_dim_chorister` (int)
+- `rows_dim_chorister_assignment` (int)
+- `rows_dim_song` (int)
+- `rows_fact_attendance` (int)
+- `rows_fact_song_time` (int)
 - `error_message` (string, nullable)
 
 ### `bad_cells`
