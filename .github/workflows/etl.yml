@@ -4,7 +4,7 @@ on:
   workflow_dispatch: {}
   schedule:
     - cron: "0 6 * * 1"
-    - cron: "0 6 * * 5" 
+    - cron: "0 6 * * 4" 
 
 jobs:
   run-etl:
@@ -46,12 +46,12 @@ jobs:
         run: |
           python -m etl.main
 
-      - name: Notify Telegram (success)
-        if: success()
-        run: |
-          curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="✅ Статистика обновилась"
+      # - name: Notify Telegram (success)
+      #   if: success()
+      #   run: |
+      #     curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+      #       -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+      #       -d text="✅ Статистика обновилась"
 
       - name: Notify Telegram (failure)
         if: failure()
