@@ -110,6 +110,7 @@ MART_ATTENDANCE_HEADER = [
     "full_name",
     "joined_date",
     "voice_part",
+    "tgid",
     "is_active",
     "hours_attended",
     "attended_flag",
@@ -156,6 +157,7 @@ def build_mart_attendance(
 
         ch = chorister_by_id.get(chorister_id) or {}
         full_name = _safe_str(ch.get("full_name"))
+        tgid = _safe_str(ch.get("tgid"))
         joined_date_raw = ch.get("joined_date")
         joined_date_iso = _joined_date_iso_for_available(ch, chorister_id)
         joined_date_display = _normalize_date_to_iso(joined_date_raw) or _safe_str(joined_date_raw)
@@ -172,6 +174,7 @@ def build_mart_attendance(
             full_name,
             joined_date_display,
             voice_part,
+            tgid,
             is_active,
             hours,
             attended_flag,

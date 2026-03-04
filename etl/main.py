@@ -3,10 +3,17 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict
 
 from dotenv import load_dotenv
 
+from etl.alerts import (
+    compute_attendance_rate,
+    compute_current_missed_streak,
+    format_alert_message,
+    send_telegram_message,
+)
 from etl.dim_chorister import (
     build_dim_chorister_assignment_from_raw,
     build_dim_chorister_from_raw,
@@ -17,8 +24,8 @@ from etl.fact_song_time import build_fact_song_time_from_raw
 from etl.gsheets import (
     append_rows,
     build_sheets_service,
-    get_sheet_titles,
     ensure_sheet_exists,
+    get_sheet_titles,
     get_values,
     overwrite_range,
     read_table,
@@ -101,15 +108,62 @@ def build_marts(service: Any, spreadsheet_id: str) -> None:
     write_table_overwrite(service, spreadsheet_id, "mart_chorister_song", header_cs, rows_cs)
 
 
+def _run_alerts_if_enabled(service: Any, target_spreadsheet_id: str) -> None:
+    """If ALERTS_ENABLED=1, read mart_attendance, compute violators and rate, print and optionally send to Telegram."""
+    alerts_enabled = os.environ.get("ALERTS_ENABLED", "").strip() == "1"
+    if not alerts_enabled:
+        raw_val = os.environ.get("ALERTS_ENABLED")
+        print(
+            f"Alerts disabled (ALERTS_ENABLED={raw_val!r}). "
+            "Set ALERTS_ENABLED=1 in .env (no spaces around =)."
+        )
+        return
+    lookback_weeks = int(os.environ.get("ALERTS_LOOKBACK_WEEKS", "3").strip() or "3")
+    streak_threshold = int(os.environ.get("ALERTS_STREAK_THRESHOLD", "3").strip() or "3")
+    dry_run = os.environ.get("ALERTS_DRY_RUN", "").strip() == "1"
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        print("Alerts skipped: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set.")
+        return
+    mart_attendance = read_table(service, target_spreadsheet_id, "mart_attendance")
+    violators = compute_current_missed_streak(
+        mart_attendance, lookback_weeks, streak_threshold
+    )
+    attendance_rate = compute_attendance_rate(mart_attendance, lookback_weeks)
+    message = format_alert_message(
+        violators, lookback_weeks, streak_threshold, attendance_rate
+    )
+    print("--- Alert message ---")
+    print(message)
+    print("---")
+    if dry_run:
+        print("Alerts dry run: message not sent to Telegram.")
+    else:
+        send_telegram_message(token, chat_id, message)
+
+
 def main() -> None:
     """ETL entrypoint.
-
     - Loads environment variables from .env.
     - Connects to RAW and DB spreadsheets.
-    - Writes a small test table to DB.members (for smoke-testing).
     - Builds dim_chorister, dim_chorister_assignment, dim_song from RAW and writes to DB.
     """
-    load_dotenv()
+    # Load .env from project root first (works regardless of cwd)
+    project_root = Path(__file__).resolve().parent.parent
+    env_path = project_root / ".env"
+    load_dotenv(env_path, override=True)
+    load_dotenv()  # cwd .env can override if present
+    # Fallback: read ALERTS_* from .env manually (dotenv can miss them when run as package)
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            if key.startswith("ALERTS_"):
+                os.environ.setdefault(key, value.strip().strip('"').strip("'"))
 
     raw_spreadsheet_id = os.environ["RAW_SPREADSHEET_ID"]
     target_spreadsheet_id = os.environ["TARGET_SPREADSHEET_ID"]
@@ -131,25 +185,6 @@ def main() -> None:
             spreadsheetId=raw_spreadsheet_id,
             fields="spreadsheetId",
         ).execute()
-
-        # --- Smoke-test tab: members ---------------------------------------------
-        ensure_sheet_exists(
-            service=service,
-            spreadsheet_id=target_spreadsheet_id,
-            title="members",
-        )
-
-        members_header = ["member_id", "full_name", "is_active"]
-        members_rows = [
-            members_header,
-            ["test_member_1", "Test Member", "TRUE"],
-        ]
-        overwrite_range(
-            service=service,
-            spreadsheet_id=target_spreadsheet_id,
-            range_a1="members!A1:C2",
-            rows=members_rows,
-        )
 
         # --- dim_chorister -------------------------------------------------------
         raw_values = get_values(
@@ -250,11 +285,13 @@ def main() -> None:
         build_marts(service, target_spreadsheet_id)
 
         print(
-            "ETL finished: wrote test row to DB.members, "
             f"{rows_dim_chorister} dim_chorister, {rows_dim_chorister_assignment} dim_chorister_assignment, "
             f"{rows_dim_song} dim_song, {rows_fact_attendance} fact_attendance, {rows_fact_song_time} fact_song_time; "
             "marts: mart_attendance, mart_song_rehearsal, mart_chorister_song.",
         )
+
+        # --- alerts (after successful ETL) --------------------------------------
+        _run_alerts_if_enabled(service, target_spreadsheet_id)
     except Exception as exc:  # noqa: BLE001
         status = "failed"
         # Store a short, non-secret error message.

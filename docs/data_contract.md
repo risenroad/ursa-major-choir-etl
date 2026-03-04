@@ -133,6 +133,7 @@ Columns:
 - `full_name` (string)
 - `joined_date` (date, display)
 - `voice_part` (string)
+- `tgid` (string, nullable) — Telegram username/ID from `dim_chorister`, for alerts
 - `is_active` (bool)
 - `hours_attended` (number)
 - `attended_flag` (int 0 or 1: 1 if hours_attended > 0)
@@ -207,5 +208,24 @@ Columns:
 
 ## Alerts (Telegram)
 Planned weekly alerts:
-1) missed rehearsals > 4 in the last N weeks (default N=12)
+1) missed rehearsals ≥ 3 in a row in the last N weeks (default N=3); в сообщении также выводится доходимость до репетиций (посещённые/доступные слоты в окне)
 2) missed rehearsals where a specific song was rehearsed (song filter)
+
+### How to verify alerts
+
+**Перед проверкой:** убедись, что изменения в `.env` (и в любых других файлах) **сохранены на диск** (Cmd+S / Ctrl+S). Если правки только в интерфейсе редактора и не сохранены, ETL будет читать старый `.env` и алерты могут не сработать.
+
+**1) Проверить, что логика верная (без отправки в Telegram)**  
+В `.env`: `ALERTS_ENABLED=1`, `ALERTS_DRY_RUN=1`, плюс `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` (могут быть любыми). Запустить ETL. В консоли появится блок:
+```
+--- Alert message ---
+<текст сообщения>
+---
+Alerts dry run: message not sent to Telegram.
+```
+По этому тексту проверяешь: либо «Нет хористов с пропусками 3+ подряд», либо список имён/партий и длины серий — всё ли совпадает с ожиданием. В Telegram ничего не уходит.
+
+**2) Проверить, что сообщения приходят в Telegram**  
+В `.env`: оставить `ALERTS_ENABLED=1`, убрать или закомментировать `ALERTS_DRY_RUN` (или поставить `ALERTS_DRY_RUN=0`). Запустить ETL. В консоли снова будет напечатан тот же текст, затем он уйдёт в чат. Проверить в Telegram, что сообщение пришло.
+
+Дополнительно: юнит-тесты логики без сети — `PYTHONPATH=. python -m unittest tests.test_alerts -v`.
