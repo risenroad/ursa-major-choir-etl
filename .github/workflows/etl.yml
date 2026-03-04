@@ -39,6 +39,10 @@ jobs:
           TARGET_SPREADSHEET_ID: ${{ secrets.TARGET_SPREADSHEET_ID }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          ALERTS_ENABLED: ${{ secrets.ALERTS_ENABLED }}
+          ALERTS_STREAK_THRESHOLD: ${{ secrets.ALERTS_STREAK_THRESHOLD }}
+          ALERTS_LOOKBACK_WEEKS: ${{ secrets.ALERTS_LOOKBACK_WEEKS }}
         run: |
           python -m etl.main
 
