@@ -201,7 +201,7 @@ def format_alert_message(
         )
     else:
         parts.append(
-            f"⚠️ Хористы с {streak_threshold}+ пропусками подряд (за последние {lookback_weeks} недели):"
+            f"⚠️ Хористы, пропустившие последние {streak_threshold} репетиции:"
         )
         parts.append("")
         for i, v in enumerate(violators, 1):
