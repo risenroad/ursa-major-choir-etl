@@ -197,7 +197,7 @@ def format_alert_message(
         parts.append("")  # отступ 1 строка
     if not violators:
         parts.append(
-            f"✅ Нет хористов с пропусками {streak_threshold}+ подряд (за последние {lookback_weeks} недели)."
+            f"✅ На последних {streak_threshold} репетициях был полный состав хористов."
         )
     else:
         parts.append(
