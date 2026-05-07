@@ -214,6 +214,7 @@ def format_alert_message(
             parts.append(f"{i}. {name} ({part}) — пропусков: {streak}, последняя явка: {last_att}, {tg_mention}")
     parts.append("")
     parts.append(f'<a href="{DASHBOARD_URL}">Ссылка на дашборд</a>')
+    parts.append("#посещаемость")
     return "\n".join(parts)
 
 
