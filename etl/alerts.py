@@ -189,7 +189,7 @@ def format_alert_message(
         pct = round(attendance_rate * 100)
         if pct < 50:
             icon = "🔴"
-        elif pct <= 65:
+        elif pct <= 75:
             icon = "🟡"
         else:
             icon = "🟢"
