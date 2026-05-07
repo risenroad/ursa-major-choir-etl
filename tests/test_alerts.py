@@ -115,7 +115,7 @@ class TestComputeAttendanceRate(unittest.TestCase):
         self.assertIsNone(compute_attendance_rate([], 5))
 
     def test_rate_in_window(self) -> None:
-        """Доходимость = посещённые / доступные в окне."""
+        """Доходимость = посещённые / доступные в окне (только активные)."""
         base = (datetime.now() - timedelta(days=7 * 3)).strftime("%Y-%m-%d")
         rows = []
         for i in range(4):
@@ -126,11 +126,23 @@ class TestComputeAttendanceRate(unittest.TestCase):
                     "chorister_id": cid,
                     "available_flag": 1,
                     "attended_flag": attended,
+                    "is_active": 1,
                 })
         rate = compute_attendance_rate(rows, lookback_weeks=5)
         self.assertIsNotNone(rate)
-        # 4 dates * 3 choristers = 12 slots; 4*2 + 4*1 = 12 attended? No: each date 2 attended, 1 missed -> 8 attended, 4 missed. So 8/12
         self.assertAlmostEqual(rate, 8 / 12)
+
+    def test_rate_excludes_inactive_choristers(self) -> None:
+        base = (datetime.now() - timedelta(days=7 * 2)).strftime("%Y-%m-%d")
+        rows = []
+        for i in range(3):
+            d = (datetime.strptime(base, "%Y-%m-%d") + timedelta(weeks=i)).strftime("%Y-%m-%d")
+            rows.append({"rehearsal_date": d, "chorister_id": "c1", "available_flag": 1, "attended_flag": 1, "is_active": 1})
+            rows.append({"rehearsal_date": d, "chorister_id": "c2", "available_flag": 1, "attended_flag": 0, "is_active": 1})
+            rows.append({"rehearsal_date": d, "chorister_id": "c3", "available_flag": 1, "attended_flag": 0, "is_active": 0})
+        rate = compute_attendance_rate(rows, lookback_weeks=5)
+        self.assertIsNotNone(rate)
+        self.assertAlmostEqual(rate, 0.5)
 
 
 class TestFormatAlertMessage(unittest.TestCase):

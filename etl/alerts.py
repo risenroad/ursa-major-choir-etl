@@ -155,10 +155,10 @@ def compute_attendance_rate(
     mart_attendance_rows: List[dict],
     lookback_weeks: int,
 ) -> float | None:
-    """Доходимость до репетиций: сумма посещённых (attended) / сумма доступных (available) в окне.
+    """Доходимость до репетиций: сумма посещённых / сумма доступных слотов в окне.
 
-    Окно = последние lookback_weeks от максимальной даты в данных. Учитываются только
-    строки с available_flag=1. Возвращает долю 0..1 или None, если нет данных.
+    Окно = последние lookback_weeks от максимальной даты. Учитываются только строки
+    с available_flag=1 и только активные хористы (is_active). Возвращает долю 0..1 или None.
     """
     rows = _normalize_available_rows(mart_attendance_rows)
     if not rows:
@@ -166,11 +166,14 @@ def compute_attendance_rate(
     window_dates = _get_window_dates(rows, lookback_weeks)
     if not window_dates:
         return None
-    in_window = [r for r in rows if r["rehearsal_date"] in window_dates]
-    total = len(in_window)
+    in_window_active = [
+        r for r in rows
+        if r["rehearsal_date"] in window_dates and r["is_active"]
+    ]
+    total = len(in_window_active)
     if total == 0:
         return None
-    attended = sum(r["attended_flag"] for r in in_window)
+    attended = sum(r["attended_flag"] for r in in_window_active)
     return attended / total
 
 
