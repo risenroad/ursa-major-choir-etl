@@ -223,10 +223,14 @@ def build_dim_chorister_assignment_from_raw(
                 normalized_name,
                 chorister_id,
             )
+            current_is_active = _extract_voice_part_and_active(tag)["is_active"]
             for override in overrides:
                 voice_part = override["voice_part"].strip().lower()
                 valid_from = override["valid_from"]
                 valid_to = override.get("valid_to", "")
+                # Open period (no valid_to): status from current RAW Tag (e.g. exAlto -> inactive).
+                # Closed historical periods: member was active in the choir during that voice part.
+                is_active = current_is_active if not valid_to else True
 
                 assignment_id = f"{override_chorister_id} | {voice_part} | {valid_from}"
                 rows.append(
@@ -234,7 +238,7 @@ def build_dim_chorister_assignment_from_raw(
                         assignment_id,
                         override_chorister_id,
                         voice_part,
-                        "TRUE",
+                        "TRUE" if is_active else "FALSE",
                         valid_from,
                         valid_to,
                     ]
