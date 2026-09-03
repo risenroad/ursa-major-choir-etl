@@ -113,10 +113,28 @@ MART_ATTENDANCE_HEADER = [
     "tgid",
     "is_active",
     "hours_attended",
+    "available_hours",
     "attended_flag",
     "missed_flag",
     "available_flag",
 ]
+
+
+def _max_hours_by_rehearsal_date(fact_attendance: List[dict]) -> dict[str, float]:
+    """Max hours_attended per rehearsal_date (full rehearsal length from fact matrix column)."""
+    max_by_date: dict[str, float] = {}
+    for fa in fact_attendance:
+        rehearsal_date_raw = fa.get("rehearsal_date")
+        rehearsal_date_iso = _normalize_date_to_iso(rehearsal_date_raw)
+        if not rehearsal_date_iso:
+            rehearsal_date_iso = _safe_str(rehearsal_date_raw)
+        if not rehearsal_date_iso:
+            continue
+        hours = _safe_float(fa.get("hours_attended"))
+        prev = max_by_date.get(rehearsal_date_iso, 0.0)
+        if hours > prev:
+            max_by_date[rehearsal_date_iso] = hours
+    return max_by_date
 
 
 def _joined_date_iso_for_available(ch: dict, chorister_id: str) -> str:
@@ -141,8 +159,10 @@ def build_mart_attendance(
     """Build mart_attendance: one row per chorister_id + rehearsal_date. Returns (header, rows).
 
     missed_flag from fact_attendance; available_flag = 1 if rehearsal_date >= joined_date else 0.
+    available_hours = max hours_attended on that rehearsal_date across all choristers (from fact).
     """
     chorister_by_id: dict[str, dict] = {_safe_str(r.get("chorister_id")): r for r in dim_chorister if _safe_str(r.get("chorister_id"))}
+    max_hours_by_date = _max_hours_by_rehearsal_date(fact_attendance)
 
     rows: List[List[Any]] = []
     for fa in fact_attendance:
@@ -167,6 +187,7 @@ def build_mart_attendance(
         is_active = _is_active_from_assignment(assignment)
         attended_flag = 1 if hours > 0 else 0
         available_flag = 1 if (joined_date_iso and rehearsal_date_iso >= joined_date_iso) else 0
+        available_hours = max_hours_by_date.get(rehearsal_date_iso, 0.0)
 
         rows.append([
             rehearsal_date_iso,
@@ -177,6 +198,7 @@ def build_mart_attendance(
             tgid,
             is_active,
             hours,
+            available_hours,
             attended_flag,
             missed_flag,
             available_flag,

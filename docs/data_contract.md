@@ -136,6 +136,7 @@ Columns:
 - `tgid` (string, nullable) — Telegram username/ID from `dim_chorister`, for alerts
 - `is_active` (bool)
 - `hours_attended` (number)
+- `available_hours` (number: max hours_attended on this rehearsal_date across all choristers)
 - `attended_flag` (int 0 or 1: 1 if hours_attended > 0)
 - `missed_flag` (int 0 or 1, from fact_attendance)
 - `available_flag` (int 0 or 1: 1 if rehearsal_date >= joined_date)
